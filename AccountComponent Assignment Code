@@ -1,0 +1,134 @@
+Apex Controller:
+public class AccountListController {
+ @AuraEnabled    
+    public static List < Account > fetchAccts() {    
+            
+        return [ SELECT Id, Name, Industry, Type, CreatedDate FROM Account where Industry = :'Financial Services' LIMIT 100 ];    
+            
+    }    
+      
+    @AuraEnabled    
+    public static boolean updateAccts( List < Account > updatedAccountList ) {    
+            
+        try {  
+          
+            update updatedAccountList;  
+            return true;  
+              
+        } catch(Exception e) {  
+          
+            return false;  
+              
+        }  
+            
+    }    
+}
+...............................................
+Component: 
+<aura:component controller="AccountListController" implements="force:appHostable,flexipage:availableForAllPageTypes,flexipage:availableForRecordHome,force:hasRecordId" access="global" >
+	 <aura:attribute type="object" name="acctList"/>    
+    <aura:attribute name="mycolumns" type="List"/>    
+        
+    <aura:handler name="init" value="{!this}" action="{!c.onInit}"/>    
+        
+    <lightning:datatable aura:id="acctTable"  
+                         data="{! v.acctList }"     
+                         columns="{! v.mycolumns }"     
+                         keyField="Id"    
+                         hideCheckboxColumn="true"  
+                         onsave="{! c.onSave }"/>  
+</aura:component>
+........................................................
+controller.js:
+({    
+      
+    onInit : function( component, event, helper ) {    
+          
+        component.set( 'v.mycolumns', [    
+            {label: 'Account Name', fieldName: 'Name', type: 'text', editable:'true'},    
+            {label: 'Industry', fieldName: 'Industry', type: 'text'},    
+            {label: 'Created Date', fieldName: 'CreatedDate', type: 'date', typeAttributes: {  
+                day: 'numeric',  
+                month: 'short',  
+                year: 'numeric',  
+                hour: '2-digit',  
+                minute: '2-digit',  
+                second: '2-digit',  
+                hour12: true}},    
+            {label: 'Type', fieldName: 'Type', type: 'Text'}    
+        ]);    
+        helper.fetchAccounts(component);  
+          
+    },  
+      
+    onSave : function( component, event, helper ) {   
+          
+        var updatedRecords = component.find( "acctTable" ).get( "v.draftValues" );  
+        var action = component.get( "c.updateAccts" );  
+        action.setParams({  
+              
+            'updatedAccountList' : updatedRecords  
+              
+        });  
+        action.setCallback( this, function( response ) {  
+              
+            var state = response.getState();   
+            if ( state === "SUCCESS" ) {  
+  
+                if ( response.getReturnValue() === true ) {  
+                      
+                    helper.toastMsg( 'success', 'Records Saved Successfully.' );  
+                    component.find( "acctTable" ).set( "v.draftValues", null );  
+                      
+                } else {   
+                      
+                    helper.toastMsg( 'error', 'Something went wrong. Contact your system administrator.' );  
+                      
+                }  
+                  
+            } else {  
+                  
+                helper.toastMsg( 'error', 'Something went wrong. Contact your system administrator.' );  
+                  
+            }  
+              
+        });  
+        $A.enqueueAction( action );  
+          
+    }  
+      
+})  
+.............................................................
+Helper.js:
+({  
+      
+    fetchAccounts : function( component ) {  
+          
+        var action = component.get( "c.fetchAccts" );  
+        action.setCallback(this, function( response ) {    
+              
+            var state = response.getState();    
+            if (state === "SUCCESS")     
+                component.set( "v.acctList", response.getReturnValue() );                
+              
+        });    
+        $A.enqueueAction(action);   
+          
+    },  
+      
+    toastMsg : function( strType, strMessage ) {  
+          
+        var showToast = $A.get( "e.force:showToast" );   
+        showToast.setParams({   
+              
+            message : strMessage,  
+            type : strType,  
+            mode : 'sticky'  
+              
+        });   
+        showToast.fire();   
+          
+    }  
+      
+})  
+..........................................................................
